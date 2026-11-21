@@ -1,3 +1,11 @@
+import {
+  categorias,
+  guardarCategorias,
+  eliminarCategoria as eliminarCatData,
+  obtenerNombreCategoria,
+  actualizarSelectsCategorias
+} from './categoria.js';
+
 class TareaItem extends HTMLElement {
   constructor() {
     super();
@@ -15,6 +23,7 @@ class TareaItem extends HTMLElement {
     const fecha = this.getAttribute('data-fecha') || new Date().toLocaleDateString();
     const completado = this.getAttribute('data-completado') === 'true';
     const esImportada = this.getAttribute('data-importada') === 'true';
+    const categoriaNombre = this.getAttribute('data-categoria-nombre') || '';
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -51,7 +60,8 @@ class TareaItem extends HTMLElement {
         .linea-principal {
           display: flex;
           align-items: center;
-          gap: 10px;
+          flex-wrap: wrap;
+          gap: 8px;
         }
         .titulo {
           font-weight: 600;
@@ -67,6 +77,14 @@ class TareaItem extends HTMLElement {
           color: white;
           font-size: 0.7rem;
           padding: 2px 8px;
+          border-radius: 20px;
+          font-weight: 700;
+        }
+        .badge-categoria {
+          background: #e0f2fe;
+          color: #0369a1;
+          font-size: 0.72rem;
+          padding: 2px 9px;
           border-radius: 20px;
           font-weight: 700;
         }
@@ -88,19 +106,20 @@ class TareaItem extends HTMLElement {
         .secundario { background-color: #f1f5f9; }
         .peligro { background-color: #fee2e2; color: #dc2626; }
       </style>
-      
+
       <div class="tarea-item ${completado ? 'completada' : ''}">
         <div class="info-container">
           <div class="linea-principal">
             <input type="checkbox" class="chk-estado" ${completado ? 'checked' : ''}>
             <span class="titulo">${titulo}</span>
+            ${categoriaNombre ? `<span class="badge-categoria">${categoriaNombre}</span>` : ''}
             <span class="fecha">(${fecha})</span>
             ${esImportada ? '<span class="badge">Importada</span>' : ''}
           </div>
           ${descripcion ? `<div class="descripcion">${descripcion}</div>` : ''}
         </div>
         <div class="acciones">
-          ${!esImportada ? `<button class="btn secundario btn-editar" title="Editar">✏️</button>` : ''}
+          <button class="btn secundario btn-editar" title="Editar">✏️</button>
           <button class="btn peligro btn-eliminar" title="Eliminar">🗑️</button>
         </div>
       </div>
@@ -134,11 +153,21 @@ const modalTarea = document.getElementById('modalTarea');
 const formTarea = document.getElementById('formTarea');
 const inputTitulo = document.getElementById('inputTitulo');
 const inputDescripcion = document.getElementById('inputDescripcion');
+const selectCategoriaTarea = document.getElementById('selectCategoriaTarea');
+const selectCategoriaImportar = document.getElementById('selectCategoriaImportar');
 const tareaIdInput = document.getElementById('tareaId');
 const modalImportar = document.getElementById('modalImportar');
 const listaApi = document.getElementById('listaApi');
 const buscador = document.getElementById('buscador');
 const filtroEstado = document.getElementById('filtroEstado');
+const filtroCategoria = document.getElementById('filtroCategoria');
+
+const modalCategorias = document.getElementById('modalCategorias');
+const formCategoria = document.getElementById('formCategoria');
+const categoriaIdEditar = document.getElementById('categoriaIdEditar');
+const inputNombreCategoria = document.getElementById('inputNombreCategoria');
+const listaCategoriasEl = document.getElementById('listaCategorias');
+const btnCancelarEdicionCategoria = document.getElementById('btnCancelarEdicionCategoria');
 
 // 3. RENDERIZAR TAREAS
 function renderizarTareas() {
@@ -146,22 +175,21 @@ function renderizarTareas() {
 
   const textoBuscador = buscador.value.toLowerCase();
   const estadoFiltro = filtroEstado.value;
+  const categoriaFiltro = filtroCategoria ? filtroCategoria.value : '';
 
   const tareasFiltradas = tareas.filter(t => {
-    const coincideTexto = t.titulo.toLowerCase().includes(textoBuscador) || 
-                          (t.descripcion && t.descripcion.toLowerCase().includes(textoBuscador));
-    const coincideEstado = 
+    const coincideTexto = t.titulo.toLowerCase().includes(textoBuscador) ||
+      (t.descripcion && t.descripcion.toLowerCase().includes(textoBuscador));
+    const coincideEstado =
       estadoFiltro === 'todas' ? true :
       estadoFiltro === 'completadas' ? t.completado :
       !t.completado;
-    return coincideTexto && coincideEstado;
+    const coincideCategoria = !categoriaFiltro || t.categoriaId === categoriaFiltro;
+
+    return coincideTexto && coincideEstado && coincideCategoria;
   });
 
-  if (tareasFiltradas.length === 0) {
-    mensajeVacio.style.display = 'block';
-  } else {
-    mensajeVacio.style.display = 'none';
-  }
+  mensajeVacio.style.display = tareasFiltradas.length === 0 ? 'block' : 'none';
 
   tareasFiltradas.forEach(tarea => {
     const item = document.createElement('tarea-item');
@@ -171,6 +199,7 @@ function renderizarTareas() {
     item.setAttribute('data-fecha', tarea.fecha || new Date().toLocaleDateString());
     item.setAttribute('data-completado', tarea.completado);
     item.setAttribute('data-importada', tarea.esImportada || false);
+    item.setAttribute('data-categoria-nombre', obtenerNombreCategoria(tarea.categoriaId));
 
     listaTareas.appendChild(item);
   });
@@ -189,17 +218,20 @@ function eliminarTarea(id) {
   renderizarTareas();
 }
 
+// 4. CREAR / EDITAR TAREAS
 formTarea.addEventListener('submit', (e) => {
   e.preventDefault();
   const id = tareaIdInput.value;
   const titulo = inputTitulo.value.trim();
   const descripcion = inputDescripcion ? inputDescripcion.value.trim() : '';
+  const categoriaId = selectCategoriaTarea ? selectCategoriaTarea.value : '';
 
   if (id) {
     const tarea = tareas.find(t => t.id === id);
     if (tarea) {
       tarea.titulo = titulo;
       tarea.descripcion = descripcion;
+      tarea.categoriaId = categoriaId;
     }
   } else {
     tareas.push({
@@ -208,7 +240,8 @@ formTarea.addEventListener('submit', (e) => {
       descripcion: descripcion,
       fecha: new Date().toLocaleDateString(),
       completado: false,
-      esImportada: false
+      esImportada: false,
+      categoriaId: categoriaId
     });
   }
 
@@ -220,41 +253,128 @@ document.getElementById('btnNuevaTarea').addEventListener('click', () => {
   document.getElementById('tituloModal').innerText = 'Nueva Tarea';
   tareaIdInput.value = '';
   formTarea.reset();
+  actualizarSelectsCategorias();
   modalTarea.classList.remove('oculto');
 });
 
 function prepararEdicion(id) {
   const tarea = tareas.find(t => t.id === id);
-  if (!tarea || tarea.esImportada) return; 
-  
+  if (!tarea) return;
+
+  actualizarSelectsCategorias();
   document.getElementById('tituloModal').innerText = 'Editar Tarea';
   tareaIdInput.value = tarea.id;
   inputTitulo.value = tarea.titulo;
-  if(inputDescripcion) inputDescripcion.value = tarea.descripcion || '';
+  if (inputDescripcion) inputDescripcion.value = tarea.descripcion || '';
+  if (selectCategoriaTarea) selectCategoriaTarea.value = tarea.categoriaId || '';
   modalTarea.classList.remove('oculto');
 }
 
-function cerrarModal() { 
-  modalTarea.classList.add('oculto'); 
+function cerrarModal() {
+  modalTarea.classList.add('oculto');
 }
 
 document.getElementById('btnCerrarModal').addEventListener('click', cerrarModal);
 
 buscador.addEventListener('input', renderizarTareas);
 filtroEstado.addEventListener('change', renderizarTareas);
+if (filtroCategoria) filtroCategoria.addEventListener('change', renderizarTareas);
 
-// 4. IMPORTAR DESDE API
+// 5. GESTIONAR CATEGORÍAS (CREAR, ACTUALIZAR, ELIMINAR)
+function renderizarListaCategorias() {
+  listaCategoriasEl.innerHTML = '';
+  categorias.forEach(cat => {
+    const li = document.createElement('li');
+    li.style.padding = '10px 14px';
+    li.style.borderLeftColor = '#6366f1';
+
+    const span = document.createElement('span');
+    span.textContent = cat.nombre;
+    span.style.fontWeight = '600';
+
+    const acciones = document.createElement('div');
+    acciones.className = 'tarea-acciones';
+
+    const btnEditar = document.createElement('button');
+    btnEditar.type = 'button';
+    btnEditar.className = 'btn-icono';
+    btnEditar.textContent = '✏️';
+    btnEditar.title = 'Editar categoría';
+    btnEditar.addEventListener('click', () => {
+      categoriaIdEditar.value = cat.id;
+      inputNombreCategoria.value = cat.nombre;
+      btnCancelarEdicionCategoria.style.display = 'inline-block';
+      inputNombreCategoria.focus();
+    });
+
+    const btnEliminar = document.createElement('button');
+    btnEliminar.type = 'button';
+    btnEliminar.className = 'btn-icono';
+    btnEliminar.textContent = '🗑️';
+    btnEliminar.title = 'Eliminar categoría';
+    btnEliminar.addEventListener('click', () => {
+      eliminarCatData(cat.id);
+      tareas.forEach(t => {
+        if (t.categoriaId === cat.id) t.categoriaId = '';
+      });
+      if (categoriaIdEditar.value === cat.id) {
+        resetFormCategoria();
+      }
+      renderizarListaCategorias();
+      renderizarTareas();
+    });
+
+    acciones.appendChild(btnEditar);
+    acciones.appendChild(btnEliminar);
+    li.appendChild(span);
+    li.appendChild(acciones);
+    listaCategoriasEl.appendChild(li);
+  });
+}
+
+function resetFormCategoria() {
+  categoriaIdEditar.value = '';
+  inputNombreCategoria.value = '';
+  btnCancelarEdicionCategoria.style.display = 'none';
+}
+
+formCategoria.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const nombre = inputNombreCategoria.value.trim();
+  const idEditar = categoriaIdEditar.value || null;
+  if (!nombre) return;
+
+  guardarCategorias(nombre, idEditar);
+  resetFormCategoria();
+  renderizarListaCategorias();
+  renderizarTareas();
+});
+
+btnCancelarEdicionCategoria.addEventListener('click', resetFormCategoria);
+
+document.getElementById('btnGestionarCategorias').addEventListener('click', () => {
+  actualizarSelectsCategorias();
+  resetFormCategoria();
+  renderizarListaCategorias();
+  modalCategorias.classList.remove('oculto');
+});
+
+document.getElementById('btnCerrarModalCategorias').addEventListener('click', () => {
+  modalCategorias.classList.add('oculto');
+});
+
+// 6. IMPORTAR DESDE API CON CATEGORÍA
 document.getElementById('btnAbrirImportar').addEventListener('click', async () => {
+  actualizarSelectsCategorias();
   modalImportar.classList.remove('oculto');
   listaApi.innerHTML = '<p style="padding: 20px; text-align: center;">Cargando banco de tareas desde la API...</p>';
 
   try {
     const respuesta = await fetch('https://jsonplaceholder.typicode.com/todos');
     if (!respuesta.ok) throw new Error('Error al conectar con la API');
-    
+
     tareasApiGlobal = await respuesta.json();
     mostrarTareasApiEnModal(tareasApiGlobal);
-
   } catch (error) {
     listaApi.innerHTML = '<p style="color: red; padding: 20px; text-align: center;">Ocurrió un error al cargar la API. Verifica tu conexión.</p>';
   }
@@ -262,7 +382,7 @@ document.getElementById('btnAbrirImportar').addEventListener('click', async () =
 
 function mostrarTareasApiEnModal(datos) {
   listaApi.innerHTML = '';
-  
+
   const contenedorScroll = document.createElement('div');
   contenedorScroll.style.maxHeight = '300px';
   contenedorScroll.style.overflowY = 'auto';
@@ -313,17 +433,20 @@ document.getElementById('btnGuardarImportadas').addEventListener('click', () => 
     return;
   }
 
+  const categoriaSeleccionada = selectCategoriaImportar ? selectCategoriaImportar.value : '';
+
   checkboxes.forEach(chk => {
     tareas.push({
-      id: 'task_imp_' + chk.dataset.id,
+      id: 'task_imp_' + chk.dataset.id + '_' + Date.now(),
       titulo: chk.dataset.titulo,
       descripcion: 'Importado de API externa',
       fecha: new Date().toLocaleDateString(),
       completado: false,
-      esImportada: true 
+      esImportada: true,
+      categoriaId: categoriaSeleccionada
     });
   });
-  
+
   modalImportar.classList.add('oculto');
   renderizarTareas();
 });
@@ -332,7 +455,7 @@ document.getElementById('btnCerrarImportar').addEventListener('click', () => {
   modalImportar.classList.add('oculto');
 });
 
-// 5. ACCIONES GLOBALES
+// 7. ACCIONES GLOBALES
 document.getElementById('btnMarcarTodas').addEventListener('click', () => {
   tareas.forEach(t => t.completado = true);
   renderizarTareas();
@@ -345,4 +468,6 @@ document.getElementById('btnVaciar').addEventListener('click', () => {
   }
 });
 
+// Inicialización
+actualizarSelectsCategorias();
 renderizarTareas();

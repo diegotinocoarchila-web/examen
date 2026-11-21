@@ -12,44 +12,18 @@
     <h1>Mis Tareas</h1>
 
     <div class="acciones-principales">
-      <button id="btnNuevaTarea" class="btn primario"> Nueva Tarea</button>
-      <button id="btnAbrirImportar" class="btn secundario"> Importar de la API</button>
-      <button id="btnMarcarTodas" class="btn secundario"> Marcar todas completas</button>
-      <button id="btnVaciar" class="btn peligro"> Vaciar todo</button>
+      <button id="btnNuevaTarea" class="btn primario">Nueva Tarea</button>
+      <button id="btnAbrirImportar" class="btn secundario">Importar de la API</button>
+      <button id="btnGestionarCategorias" class="btn secundario">Gestionar Categorías</button>
+      <button id="btnMarcarTodas" class="btn secundario">Marcar todas completas</button>
+      <button id="btnVaciar" class="btn peligro">Vaciar todo</button>
     </div>
-         <label for="selectCategoriaFiltro">Filtrar por categoría:</label>
-      <select id="selectCategoria" required>
-          <option value="">Seleccione todas las categorias</option>
-      </select>
-    <div class="acciones-pricipales">
-      <button id="butonNuevaTarea" class="btn primario"> Nueva Tarea</button>
-      <button id="btnAbrirImportar" class="btn secundario"> Importar de la API</button>
-      <!-- Nuevo: Botón para gestionar la categoria -->
-      <button id="btnGestionarCategorias" class="btn secundario"> Gestionar Categorías</button>
-      <button id="btnMarcarTodas" class="btn secundario"> Marcar todas completas</button>
-      <button id="btnVaciar" class="btn peligro"> Vaciar todo</button>
-    </div>
-        <label for="selectCategoria">Categoria:</label>
-        <select id="selectCategoria" required>
-            <option value="">Seleccione una categoría</option>
-        </select>
-    <div id="modalCategorias" class="modal oculto">
-      <div class="modal-contenido">
-        <h2>Gestionar Categorías</h2>
-        <form id="formCategoria">
-          <input type="hidden" id="categoriaId">
-          <label for="inputNombreCategoria">Nombre de la categoría:</label>
-          <input type="text" id="inputNombreCategoria" required placeholder="Ej. Trabajo, Personal, Estudio">
-    
-          <div class="modal-acciones">
-            <button type="button" id="btnCerrarModalCategorias" class="btn secundario">Cancelar</button>
-            <button type="submit" class="btn primario">Guardar</button>
-          </div>
-        </form>
-        <ul id="listaCategorias" class="lista-categorias"></ul>
-      </div>
+
     <div class="filtros">
-      <input type="text" id="buscador" placeholder=" Buscar tarea...">
+      <input type="text" id="buscador" placeholder="Buscar tarea...">
+      <select id="filtroCategoria">
+        <option value="">Todas las categorías</option>
+      </select>
       <select id="filtroEstado">
         <option value="todas">Todas</option>
         <option value="pendientes">Pendientes</option>
@@ -61,23 +35,24 @@
     <p id="mensajeVacio" class="vacio">No hay tareas creadas todavía.</p>
   </main>
 
+  <!-- Modal Crear / Editar Tarea -->
   <div id="modalTarea" class="modal oculto">
     <div class="modal-contenido">
       <h2 id="tituloModal">Nueva Tarea</h2>
       <form id="formTarea">
-      <label for="selectCategoria">Categoría:</label>
-      <select id ="selectCategoria" required>
-          <option value="">Seleccione una categoría</option>
-      </select>
         <input type="hidden" id="tareaId">
-        
+
+        <label for="selectCategoriaTarea">Categoría:</label>
+        <select id="selectCategoriaTarea" class="select-categoria-form input-field" required style="width: 100%; margin-bottom: 16px;">
+          <option value="">Seleccione una categoría</option>
+        </select>
+
         <label for="inputTitulo">Título:</label>
         <input type="text" id="inputTitulo" required placeholder="Ej. Estudiar JavaScript">
-        
-        <!-- Nuevo campo de Descripción -->
+
         <label for="inputDescripcion">Descripción:</label>
         <textarea id="inputDescripcion" rows="3" placeholder="Ej. Repasar promesas, async/await y fetch"></textarea>
-        
+
         <div class="modal-acciones">
           <button type="button" id="btnCerrarModal" class="btn secundario">Cancelar</button>
           <button type="submit" class="btn primario">Guardar</button>
@@ -86,9 +61,36 @@
     </div>
   </div>
 
+  <!-- Modal Gestionar Categorías -->
+  <div id="modalCategorias" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>Gestionar Categorías</h2>
+      <form id="formCategoria">
+        <input type="hidden" id="categoriaIdEditar">
+        <label for="inputNombreCategoria">Nombre de la categoría:</label>
+        <input type="text" id="inputNombreCategoria" required placeholder="Ej. Trabajo, Personal, Estudio">
+
+        <div class="modal-acciones" style="margin-bottom: 16px;">
+          <button type="button" id="btnCancelarEdicionCategoria" class="btn secundario" style="display: none;">Cancelar edición</button>
+          <button type="button" id="btnCerrarModalCategorias" class="btn secundario">Cerrar</button>
+          <button type="submit" class="btn primario">Guardar</button>
+        </div>
+      </form>
+
+      <ul id="listaCategorias" class="lista" style="max-height: 220px; overflow-y: auto;"></ul>
+    </div>
+  </div>
+
+  <!-- Modal Importar desde API -->
   <div id="modalImportar" class="modal oculto">
     <div class="modal-contenido grande">
       <h2>Importar Tareas de Internet (API)</h2>
+
+      <label for="selectCategoriaImportar">Categoría para las tareas importadas:</label>
+      <select id="selectCategoriaImportar" class="select-categoria-form input-field" style="width: 100%; margin-bottom: 14px;">
+        <option value="">Seleccione una categoría</option>
+      </select>
+
       <div id="listaApi" class="lista-api">Cargando...</div>
       <div class="modal-acciones">
         <button type="button" id="btnCerrarImportar" class="btn secundario">Cerrar</button>
@@ -97,6 +99,6 @@
     </div>
   </div>
 
-  <script src="trabajo.js"></script>
+  <script type="module" src="trabajo.js"></script>
 </body>
 </html>

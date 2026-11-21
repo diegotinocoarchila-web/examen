@@ -1,52 +1,74 @@
-export let categorias = JSON.parse(localStorage.getItem('categorias')) || [];
-categorias = [
+export const CLAVE_CATEGORIAS = 'MIS_CATEGORIAS';
+
+const categoriasPorDefecto = [
   { id: 'categoria_1', nombre: 'Trabajo' },
   { id: 'categoria_2', nombre: 'Personal' },
-  { id: 'categoria_3', nombre: 'Estuudio' },
+  { id: 'categoria_3', nombre: 'Estudio' }
 ];
 
-export function guardarCategorias(nombredelaCategoria, idExistente = null){
-    if (!nombredelacCategoria.trim()) return;
+export let categorias = JSON.parse(localStorage.getItem(CLAVE_CATEGORIAS)) || [...categoriasPorDefecto];
+
+export function guardarCategorias(nombreCategoria, idExistente = null) {
+  const limpio = (nombreCategoria || '').trim();
+  if (!limpio) return null;
+
+  if (idExistente) {
+    const categoria = categorias.find(c => c.id === idExistente);
+    if (categoria) {
+      categoria.nombre = limpio;
+    }
+  } else {
+    categorias.push({
+      id: 'categoria_' + Date.now(),
+      nombre: limpio
+    });
+  }
+
+  localStorage.setItem(CLAVE_CATEGORIAS, JSON.stringify(categorias));
+  actualizarSelectsCategorias();
+  return categorias;
 }
-    if (idExistente) {
-        const categoria = categorias.find(c => c.id === idExistente);
-        if (categoria) {
-            categoria.nombre = nombredelacCategoria.trim();
-        };
-        categorias.push(nuevaCategoria);
+
+export function eliminarCategoria(id) {
+  categorias = categorias.filter(c => c.id !== id);
+  localStorage.setItem(CLAVE_CATEGORIAS, JSON.stringify(categorias));
+  actualizarSelectsCategorias();
+}
+
+export function obtenerNombreCategoria(categoriaId) {
+  if (!categoriaId) return '';
+  const encontrada = categorias.find(c => c.id === categoriaId);
+  return encontrada ? encontrada.nombre : '';
+}
+
+export function actualizarSelectsCategorias() {
+  const selects = document.querySelectorAll('.select-categoria-form');
+  selects.forEach(select => {
+    const valorActual = select.value;
+    select.innerHTML = '<option value="">Seleccione una categoría</option>';
+    categorias.forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.nombre;
+      select.appendChild(option);
+    });
+    if (valorActual) {
+      select.value = valorActual;
     }
+  });
 
-    export function eliminarCategoria(id) {
-        categorias = categorias.filter(c => c.id !== id);
-        localStorage.setItem(MIS_ETIQUETAS, JSON.stringify(categorias));
-        actualizarSelectcategorias();
+  const filtroCat = document.getElementById('filtroCategoria');
+  if (filtroCat) {
+    const valorFiltro = filtroCat.value;
+    filtroCat.innerHTML = '<option value="">Todas las categorías</option>';
+    categorias.forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.nombre;
+      filtroCat.appendChild(option);
+    });
+    if (valorFiltro) {
+      filtroCat.value = valorFiltro;
     }
-    
-    export function actualizarSelectacategorias() {
-        const selectFormulario = documento.getElementobyid('selectCategoria');
-        if (!selectFormulario) return;
-
-        selectFormulario.innerHTML = '<option value="">Seleccione una categoría</option>';
-
-        categorias.forEach(categoria => {
-            selectFormulario.innerHTML += `<option value="${categoria.id}">${categoria.nombre}</option>`;
-        });
-    }
-
-documento.addEventlidtener('DOMContentLoaded', () => {
-    actualizarSelectsCategorias();
-});
-
-import { categorias, guardarCategorias, eliminarCategoria, actualizarSelectsCategorias } from './categoria.js';
-
-const categoriaId = documentos.gentElementoByid('selectCategorias').velve
-
-tareas.push({
-    id: 'tarea' + Date.now(),
-    titulo: titulo,
-    descripcion: descripcion,
-    fecha: new Date().toLocaleDateString(),
-    completado: false,
-    esImportante: false,
-    categoriaId: categoriaId // <-- Vinculacion de la lista
-});
+  }
+}
